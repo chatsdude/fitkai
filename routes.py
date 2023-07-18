@@ -1,6 +1,6 @@
 from app import app, db
 from flask import request, jsonify
-from services import register_user, authenticate_user, generate_jwt_token, update_user_preferences, register_workout, get_workout_history
+from services import register_user, authenticate_user, generate_jwt_token, update_user_preferences, register_workout, get_workout_history, get_user_workout_progress, get_user_stats
 from functools import wraps
 import jwt
 from models import User
@@ -12,8 +12,8 @@ def token_required(f):
     @wraps(f)
     def decorator(*args, **kwargs):
         token = None
-        if 'x-access-tokens' in request.headers:
-            token = request.headers['x-access-tokens']
+        if 'x-access-token' in request.headers:
+            token = request.headers['x-access-token']
 
         if not token:
             return jsonify({'message': 'a valid token is missing'})
@@ -181,4 +181,45 @@ def logout(user, token):
         'error': 'Logout successful',
         'token': token
     })
+
+@app.route('/user/workout-progress', methods=['GET'])
+@token_required
+def get_workout_progress(user, token):
+    try:
+        exercise = request.args.get('exercise')
+        exercise_id = EXERCISE_MAPPING.get(exercise)
+        user_id = user.id
+        if exercise_id is None:
+            raise ValueError('Invalid Exercise id.')
+    except Exception as e:
+        return jsonify(error='Invalid request.Please check your parameters again.'), 400
+
+
+    # Validate and parse the start and end dates
+    '''try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify(error='Invalid date format'), 400
+
+    end_date = end_date + timedelta(days=1)'''
+
+    try:
+        formatted_data = get_user_workout_progress(user_id,exercise_id)
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+
+    return jsonify(workout_progress=formatted_data)
+
+@app.route('/user/stats', methods=['GET'])
+@token_required
+def get_stats(user, token):
+    try:
+        user_id = user.id
+        stats = get_user_stats(user_id)
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({
+            "errorMsg": str(e)
+        }), 500
 
